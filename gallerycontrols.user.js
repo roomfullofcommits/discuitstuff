@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gallery Controls
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/gallerycontrols.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/gallerycontrols.user.js
 // @description  fuck off gallery controls!!
@@ -11,8 +11,6 @@
 // @icon         https://discuit.org/favicon.png
 // @grant        GM_addStyle
 // ==/UserScript==
-
-// testing
 
 GM_addStyle(`
 .image-gallery-next-btn {
