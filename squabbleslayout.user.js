@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
+// @version      0.2.0
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -99,8 +99,13 @@ function onLoad() {
 // doesnt load comments when switching page. a request is happening and posts are being cached but it misses creation of post elements --
 // somehow make sure stuff is rerun on url change? --
 
-// for some reason when going back from a post the feed-item-item is added twice, so the listener that adds comments is also added twice
-// kind of fixed this by checking if comment box already exists but i dont like that
+// for some reason when going back from a post the feed-item-item is added twice, so the listener that adds comments is also added twice --
+// kind of fixed this by checking if comment box already exists but i dont like that --
+
+// correct comment nesting
+// comment max height/expanding
+// correct comment hover date formatting & x minutes ago
+// markdown
 
 GM_addStyle(`
 .sidebar-right {
@@ -109,11 +114,22 @@ GM_addStyle(`
 comment-box {
   display: block;
   width: 40%;
-  height: fit-content;
-  outline: solid red;
+  margin-left: var(--post-card-margin-left);
+  padding: 0 var(--padding-hor);
+  .post {
+    display: block;
+  }
 }
-.post-card-card {
+body {
+  height: 100vh;
+}
+.posts {
+  overflow: unset !important;
+}
+.post-card-card, .post-votes, comment-box {
   height: fit-content;
+  top: calc(var(--navbar-height) + 20px);
+  position: sticky;
 }
 .post-image img {
   max-width: 100%;
@@ -187,7 +203,7 @@ async function constructCommentBox(parent, postIndex) {
         console.log("post " + postIndex + " already has comment box, skipping");
         return;
     }
-    let commentBox = GM_addElement(parent.querySelector(".post-card"), "comment-box");
+    let commentBox = GM_addElement(parent.querySelector(".post-card"), "comment-box", {class: "card"});
 
     let post = posts[postIndex];
     while (!post) {
@@ -196,6 +212,104 @@ async function constructCommentBox(parent, postIndex) {
     }
     //console.log(posts[postIndex]);
     if (!commentBox) return;
-    commentBox.textContent = "postIndex: " + postIndex + " | " + post.comments.length + " Comments | " + post.comments.map(comment => comment.author.username + " - " + comment.body + " == ");
+    commentBox.innerHTML = `
+    <div class="post">
+    <div class="post-comments-comments">
+      ${post.comments.map(comment => `
+      <div class="post-comment has-propics is-depth-${comment.depth}" style="z-index: 100000;" id="${comment.id}">
+        <div class="post-comment-left">
+          <div class="post-comment-collapse">
+            <div class="post-comment-propic">
+              <a href="/@${comment.username}" target="_self" rel="nofollow noreferrer">
+                <div class="user-propic">
+                  ${comment.author && comment.author.proPic ?
+                  `<div class="profile-picture" style="background-color: rgb(120, 84, 49); background-image: url(&quot;${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}&quot;);">
+                    <img alt="${comment.username}'s profile" src="${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}">
+                  </div>`
+                  :
+                  `${comment.author ?
+                  `<div class="profile-picture is-default" style="background-color: ${(() => {
+        switch (comment.username.charCodeAt(0) % 8) {
+            case 0:
+                return "#e55454";
+            case 1:
+                return "#158686";
+            case 2:
+                return "#5454e5";
+            case 3:
+                return "#9d4040";
+            case 4:
+                return "#b854e5";
+            case 5:
+                return "#000000";
+            case 6:
+                return "#d0af4e";
+            case 7:
+                return "#3da5ce";
+        }
+    })()}">
+                    <svg viewBox="-50 -50 100 100" version="1.1" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                      <text fill="currentColor" dy="0.35em" text-anchor="middle" font-size="40px">${comment.username[0].toUpperCase()}</text>
+                    </svg>
+                  </div>`
+                  :
+                  `<div class="profile-picture is-ghost" style="background-color: gray; opacity: 0.3;">
+                    <svg viewBox="-50 -50 100 100" version="1.1" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+                  </div>`
+                  }`
+                  }
+                </div>
+              </a>
+            </div>
+            <div class="post-comment-line">
+            </div>
+          </div>
+        </div>
+        <div class="post-comment-body">
+          <div class="post-comment-body-head">
+            <a href="/@${comment.username}" class="user-link post-comment-username ${comment.author && comment.author.badges.length && comment.author.badges.includes(el => el.type === "supporter") ? "is-supporter" : ""}">
+              <div class="user-link-name ${comment.author && comment.author.badges.length && comment.author.badges.includes(el => el.type === "supporter") ? "is-supporter" : ""}">${comment.username}</div>
+            </a>
+            <span title="${comment.createdAt}" class="post-comment-head-item">${comment.createdAt}</span>
+            <div class="post-comment-head-item post-comment-collapse-minus">
+            </div>
+          </div>
+          <div class="post-comment-text" style="opacity: 1; cursor: auto;">
+            <div class="showmorebox">
+              <div class="showmorebox-body" style="max-height: 500px;">
+                <div class="markdown-body">
+                  <p>${comment.body}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="post-comment-buttons" style="position: relative; z-index: 2000000;">
+            <button class="button-text post-comment-buttons-vote is-up">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m19.707 9.293-7-7a1 1 0 0 0-1.414 0l-7 7A1 1 0 0 0 5 11h3v10a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V11h3a1 1 0 0 0 .707-1.707z" fill="currentColor" data-name="Up"></path></svg>
+            </button>
+            <div class="post-comment-points">${comment.upvotes}</div>
+            <button class="button-text post-comment-buttons-vote is-down">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m19.707 9.293-7-7a1 1 0 0 0-1.414 0l-7 7A1 1 0 0 0 5 11h3v10a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V11h3a1 1 0 0 0 .707-1.707z" fill="currentColor" data-name="Up"></path></svg>
+            </button>
+            <div class="post-comment-points is-grayed">${comment.downvotes}</div>
+            <button class="button-text" title="">Reply</button>
+            <div class="dropdown">
+              <div role="button" tabindex="0" class="dropdown-target">
+                <button class="button-text post-comment-button">Share</button>
+              </div>
+              <div style="left: 0px;" class="dropdown-menu">
+                <div class="dropdown-list">
+                  <div class="dropdown-item">Copy URL</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      `).join('')}
+    </div>
+    </div>
+    <input type="checkbox" id="expanded"/>
+    `;
 }
 
