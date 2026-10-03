@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.3.0
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -36,13 +36,13 @@ let posts = [];
 
             const clonedResponse = response.clone()
             clonedResponse.json().then(async json => {
-                console.log('Fetch response JSON:', json.posts);
+                //console.log('Fetch response JSON:', json.posts);
                 for (const post of json.posts) {
                     const commentResponse = await window.fetch("https://discuit.org/api/posts/" + post.publicId)
                     posts.push(await commentResponse.json());
                 }
+                //console.log("posts: ", posts);
             });
-            console.log("posts: ", posts);
 
             return response;
         });
@@ -79,7 +79,6 @@ function onLoad() {
 
     loadObserver.disconnect();
     GM_addElement(document.querySelector(".navbar .wrap .left"), "a", { class: "button button-main", href: "/new", textContent: "+ Post", style: "color: var(--color-white"});
-    console.log("hallo");
 };
 
 // TODO
@@ -102,10 +101,21 @@ function onLoad() {
 // for some reason when going back from a post the feed-item-item is added twice, so the listener that adds comments is also added twice --
 // kind of fixed this by checking if comment box already exists but i dont like that --
 
-// correct comment nesting
-// comment max height/expanding
+// correct comment nesting --
+// comment max height/expanding --
 // correct comment hover date formatting & x minutes ago
 // markdown
+// slim layout
+// comment interaction
+// hidden and ghost deleted comments
+// muted comments
+// blocked comments
+// collapse long comments
+// community comments not assigned to correct posts. actually, comments desync after a bit. third post is always null? --
+// comments still desync when scrolling quickly
+// op, mod, admin markers
+// supporter marker not working --
+// set feed-item min-height when collapse button toggled (there was an issue where it would unload the comments and collapse them but i guess thats gone?) --
 
 GM_addStyle(`
 .sidebar-right {
@@ -115,15 +125,46 @@ comment-box {
   display: block;
   width: 40%;
   margin-left: var(--post-card-margin-left);
-  padding: 0 var(--padding-hor);
+  overflow: unset;
+  height: fit-content;
+  input#expanded {
+    bottom: 0;
+    position: sticky;
+    width: 100% !important;
+    z-index: 200000;
+    opacity: 0;
+  }
   .post {
     display: block;
+    overflow: hidden;
+    margin: 10px;
+    margin-top: 0;
+    max-height: 300px;
+  }
+  label-expand, label-collapse {
+    width: 100%;
+    height: 21px;
+    bottom: 0;
+    margin-top: -21px;
+    position: sticky;
+    text-align: center;
+    z-index: 150000;
+    background: var(--color-card);
+    border-top: var(--card-border-top);
+  }
+  label-collapse {
+    display: none;
+  }
+  &:has(input#expanded:checked) {
+    .post {max-height: unset};
+    label-expand { display: none; }
+    label-collapse { display: inline; }
   }
 }
 body {
   height: 100vh;
 }
-.posts {
+.posts, .comm-content {
   overflow: unset !important;
 }
 .post-card-card, .post-votes, comment-box {
@@ -167,7 +208,7 @@ function callback(mutationList, observer) {
                     const postObserver = new MutationObserver(postCallback);
                     postObserver.observe(el, observerOptions);
 
-                    const postIndex = [].indexOf.call(el.parentNode.children, el);
+                    const postIndex = [].indexOf.call(el.parentNode.querySelectorAll(".feed-item"), el);
                     constructCommentBox(el, postIndex);
                 }
             });
@@ -180,7 +221,7 @@ function postCallback(mutationList, observer) {
         if (mutation.type === 'childList' && mutation.addedNodes.length) {
             mutation.addedNodes.forEach(el => {
                 if (el.nodeName === "DIV" && el.matches('.feed-item-item')) {
-                    const postIndex = [].indexOf.call(el.parentNode.parentNode.children, el.parentNode);
+                    const postIndex = [].indexOf.call(el.parentNode.parentNode.querySelectorAll(".feed-item"), el.parentNode);
                     constructCommentBox(el, postIndex);
                 }
             });
@@ -193,7 +234,7 @@ window.addEventListener('urlchange', (info) => {
         const postObserver = new MutationObserver(postCallback);
         postObserver.observe(post, observerOptions);
 
-        const postIndex = [].indexOf.call(post.parentNode.children, post);
+        const postIndex = [].indexOf.call(post.parentNode.querySelectorAll(".feed-item"), post);
         constructCommentBox(post, postIndex);
     });
 });
@@ -210,7 +251,12 @@ async function constructCommentBox(parent, postIndex) {
         await new Promise(r => setTimeout(r, 50));
         post = posts[postIndex];
     }
+    //console.log(`post ${postIndex}, id ${posts[postIndex].id}`);
     //console.log(posts[postIndex]);
+    /*
+    <p>
+      post: ${postIndex} | ${post.comments.length} Comments
+    </p>*/
     if (!commentBox) return;
     commentBox.innerHTML = `
     <div class="post">
@@ -267,8 +313,8 @@ async function constructCommentBox(parent, postIndex) {
         </div>
         <div class="post-comment-body">
           <div class="post-comment-body-head">
-            <a href="/@${comment.username}" class="user-link post-comment-username ${comment.author && comment.author.badges.length && comment.author.badges.includes(el => el.type === "supporter") ? "is-supporter" : ""}">
-              <div class="user-link-name ${comment.author && comment.author.badges.length && comment.author.badges.includes(el => el.type === "supporter") ? "is-supporter" : ""}">${comment.username}</div>
+            <a href="/@${comment.username}" class="user-link post-comment-username ${comment.author && comment.author.badges.length && comment.author.badges.some(el => el.type === "supporter") ? "is-supporter" : ""}">
+              <div class="user-link-name ${comment.author && comment.author.badges.length && comment.author.badges.some(el => el.type === "supporter") ? "is-supporter" : ""}">${comment.username}</div>
             </a>
             <span title="${comment.createdAt}" class="post-comment-head-item">${comment.createdAt}</span>
             <div class="post-comment-head-item post-comment-collapse-minus">
@@ -309,7 +355,25 @@ async function constructCommentBox(parent, postIndex) {
       `).join('')}
     </div>
     </div>
-    <input type="checkbox" id="expanded"/>
+    ${post.comments.length == 0 ? "<p style='text-align: center; margin: 20px;'>No comments yet :<<br>It's free realestate!</p>" : ""}
+    ${post.comments.length > 2 ?
+    `<input type="checkbox" id="expanded"/>
+    <label-expand>Expand</label-expand>
+    <label-collapse>Collapse</label-collapse>` : ""}
     `;
+
+    //go through comments by depth
+    //select parent comment, insert
+    let depth = 1;
+    let comments = commentBox.querySelectorAll(".is-depth-1");
+    while (comments.length) {
+        comments.forEach(comment => {
+            let parentID = post.comments.find(el => el.id == comment.getAttribute("id")).parentId;
+            let parentComment = commentBox.querySelector(`[id="${parentID}"]`);
+            parentComment.querySelector(".post-comment-body").append(comment);
+        });
+        depth++;
+        comments = commentBox.querySelectorAll(`.is-depth-${depth}`);
+    }
 }
 
