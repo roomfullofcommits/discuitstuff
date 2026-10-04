@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.5.4
+// @version      0.5.5
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -271,7 +271,7 @@ body {
   }
 }
 comment-box input#post-expanded {
-  bottom: var(--bottom-navbar-height);
+  bottom: 100px;
 }
 .page-content.page-grid {
   max-width: unset;
