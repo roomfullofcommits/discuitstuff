@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.3.0
+// @version      0.4.0
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -37,9 +37,12 @@ let posts = [];
             const clonedResponse = response.clone()
             clonedResponse.json().then(async json => {
                 //console.log('Fetch response JSON:', json.posts);
+                let i = 0
                 for (const post of json.posts) {
                     const commentResponse = await window.fetch("https://discuit.org/api/posts/" + post.publicId)
                     posts.push(await commentResponse.json());
+                    constructCommentBox(null, i)
+                    i++;
                 }
                 //console.log("posts: ", posts);
             });
@@ -112,10 +115,18 @@ function onLoad() {
 // blocked comments
 // collapse long comments
 // community comments not assigned to correct posts. actually, comments desync after a bit. third post is always null? --
-// comments still desync when scrolling quickly
+// comments still desync when scrolling quickly --
+// a few comments dont show up when scrolling too quickly
 // op, mod, admin markers
 // supporter marker not working --
 // set feed-item min-height when collapse button toggled (there was an issue where it would unload the comments and collapse them but i guess thats gone?) --
+// now they dont stay expanded again? the only actual issue is when expanding comments to more than a posts length, scrolling down, then collapsing.
+  // makes stuff jump around because min-height doesnt update. still it would be nice if comments stayed expanded
+// community page layout
+// user profile page
+// base expand visibility not just on comment count, there could be one really long comment
+// high depth comments get squeezed a lot and also overflow -> use mobile comment nesting but also fix overlflow
+// comment collapsing
 
 GM_addStyle(`
 .sidebar-right {
@@ -127,7 +138,7 @@ comment-box {
   margin-left: var(--post-card-margin-left);
   overflow: unset;
   height: fit-content;
-  input#expanded {
+  input#post-expanded {
     bottom: 0;
     position: sticky;
     width: 100% !important;
@@ -155,7 +166,7 @@ comment-box {
   label-collapse {
     display: none;
   }
-  &:has(input#expanded:checked) {
+  &:has(input#post-expanded:checked) {
     .post {max-height: unset};
     label-expand { display: none; }
     label-collapse { display: inline; }
@@ -239,25 +250,24 @@ window.addEventListener('urlchange', (info) => {
     });
 });
 
-async function constructCommentBox(parent, postIndex) {
-    if (parent.querySelector("comment-box")) {
-        console.log("post " + postIndex + " already has comment box, skipping");
-        return;
+function constructCommentBox(parent, postIndex) {
+    if (!parent) parent = document.querySelectorAll(".feed-item")[postIndex]
+    let commentBox = parent.querySelector("comment-box");
+    if (!parent.querySelector(".post-card")) return;
+    if (!parent.querySelector("comment-box")) {
+        commentBox = GM_addElement(parent.querySelector(".post-card"), "comment-box", {class: "card"});
     }
-    let commentBox = GM_addElement(parent.querySelector(".post-card"), "comment-box", {class: "card"});
-
     let post = posts[postIndex];
-    while (!post) {
-        await new Promise(r => setTimeout(r, 50));
-        post = posts[postIndex];
+    if (!post) return;
+
+    //check if post has the correct short id, should only happen when scrolling quickly
+    //if not, find correct post in posts
+    let href = parent.querySelector(".post-card-title-text a").getAttribute("href");
+    if (!href.includes(post.publicId)) {
+        console.log("posts got desynced, fixing");
+        post = posts.find(el => href.includes(el.publicId));
     }
-    //console.log(`post ${postIndex}, id ${posts[postIndex].id}`);
-    //console.log(posts[postIndex]);
-    /*
-    <p>
-      post: ${postIndex} | ${post.comments.length} Comments
-    </p>*/
-    if (!commentBox) return;
+
     commentBox.innerHTML = `
     <div class="post">
     <div class="post-comments-comments">
@@ -269,12 +279,12 @@ async function constructCommentBox(parent, postIndex) {
               <a href="/@${comment.username}" target="_self" rel="nofollow noreferrer">
                 <div class="user-propic">
                   ${comment.author && comment.author.proPic ?
-                  `<div class="profile-picture" style="background-color: rgb(120, 84, 49); background-image: url(&quot;${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}&quot;);">
+                          `<div class="profile-picture" style="background-color: rgb(120, 84, 49); background-image: url(&quot;${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}&quot;);">
                     <img alt="${comment.username}'s profile" src="${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}">
                   </div>`
-                  :
-                  `${comment.author ?
-                  `<div class="profile-picture is-default" style="background-color: ${(() => {
+                          :
+                          `${comment.author ?
+                          `<div class="profile-picture is-default" style="background-color: ${(() => {
         switch (comment.username.charCodeAt(0) % 8) {
             case 0:
                 return "#e55454";
@@ -298,12 +308,12 @@ async function constructCommentBox(parent, postIndex) {
                       <text fill="currentColor" dy="0.35em" text-anchor="middle" font-size="40px">${comment.username[0].toUpperCase()}</text>
                     </svg>
                   </div>`
-                  :
-                  `<div class="profile-picture is-ghost" style="background-color: gray; opacity: 0.3;">
+                          :
+                          `<div class="profile-picture is-ghost" style="background-color: gray; opacity: 0.3;">
                     <svg viewBox="-50 -50 100 100" version="1.1" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
                   </div>`
-                  }`
-                  }
+                          }`
+                          }
                 </div>
               </a>
             </div>
@@ -356,11 +366,15 @@ async function constructCommentBox(parent, postIndex) {
     </div>
     </div>
     ${post.comments.length == 0 ? "<p style='text-align: center; margin: 20px;'>No comments yet :<<br>It's free realestate!</p>" : ""}
-    ${post.comments.length > 2 ?
-    `<input type="checkbox" id="expanded"/>
-    <label-expand>Expand</label-expand>
-    <label-collapse>Collapse</label-collapse>` : ""}
     `;
+
+    if (post.comments.length > 2 || commentBox.offsetHeight > 300) {
+        let checkbox = GM_addElement(commentBox, "input", {type: "checkbox", id: "post-expanded"});
+        let expand = GM_addElement(commentBox, "label-expand");
+        expand.textContent = "Expand";
+        let collapse = GM_addElement(commentBox, "label-collapse");
+        collapse.textContent = "Collapse";
+    }
 
     //go through comments by depth
     //select parent comment, insert
