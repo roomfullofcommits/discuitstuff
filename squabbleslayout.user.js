@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.5.1
+// @version      0.5.2
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -133,7 +133,7 @@ GM_addStyle(`
 .sidebar-right {
   display: none;
 }
-.navbar, #modal-root, #snacks-root { z-index: 300000; }
+.navbar, #modal-root, #snacks-root { z-index: 300000 !important; }
 comment-box {
   display: block;
   width: 40%;
