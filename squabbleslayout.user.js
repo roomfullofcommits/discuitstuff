@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.5.2
+// @version      0.5.3
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -133,7 +133,7 @@ GM_addStyle(`
 .sidebar-right {
   display: none;
 }
-.navbar, #modal-root, #snacks-root { z-index: 300000 !important; }
+.navbar, .bottom-navbar { z-index: 300000 !important; }
 comment-box {
   display: block;
   width: 40%;
@@ -270,7 +270,8 @@ body {
     border-bottom-right-radius: 0;
   }
 }
-@media screen and (max-width: 768px) {
+:has(.bottom-navbar) comment-box input#post-expanded {
+  bottom: var(--bottom-navbar-height);
 }
 .page-content.page-grid {
   max-width: unset;
