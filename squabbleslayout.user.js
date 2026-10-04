@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.5.0
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -85,7 +85,7 @@ function onLoad() {
 };
 
 // TODO
-// no infinite scroll
+// no infinite scroll --
 // user count on top
 //
 // check feed type --
@@ -106,32 +106,34 @@ function onLoad() {
 
 // correct comment nesting --
 // comment max height/expanding --
-// correct comment hover date formatting & x minutes ago
+// correct comment hover date formatting & x minutes ago --
 // markdown
-// slim layout
+// slim layout --
 // comment interaction
-// hidden and ghost deleted comments
-// muted comments
+// hidden and ghost deleted comments --
+// muted comments --
 // blocked comments
 // collapse long comments
 // community comments not assigned to correct posts. actually, comments desync after a bit. third post is always null? --
 // comments still desync when scrolling quickly --
 // a few comments dont show up when scrolling too quickly
-// op, mod, admin markers
+// op, mod, admin markers --
 // supporter marker not working --
 // set feed-item min-height when collapse button toggled (there was an issue where it would unload the comments and collapse them but i guess thats gone?) --
 // now they dont stay expanded again? the only actual issue is when expanding comments to more than a posts length, scrolling down, then collapsing.
   // makes stuff jump around because min-height doesnt update. still it would be nice if comments stayed expanded
 // community page layout
 // user profile page
-// base expand visibility not just on comment count, there could be one really long comment
-// high depth comments get squeezed a lot and also overflow -> use mobile comment nesting but also fix overlflow
-// comment collapsing
+// base expand visibility not just on comment count, there could be one really long comment --
+// high depth comments get squeezed a lot and also overflow -> use mobile comment nesting but also fix overlflow --
+// comment collapsing --
+// comment (and post?) votes can be disabled
 
 GM_addStyle(`
 .sidebar-right {
   display: none;
 }
+.navbar { z-index: 300000; }
 comment-box {
   display: block;
   width: 40%;
@@ -148,9 +150,63 @@ comment-box {
   .post {
     display: block;
     overflow: hidden;
-    margin: 10px;
-    margin-top: 0;
+    margin: 0 10px;
     max-height: 300px;
+    .post-comment {
+      border: 2px solid var(--collapse-color);
+      border-top-left-radius: var(--border-radius);
+      border-bottom: none;
+      border-right: none;
+      margin-top: 20px;
+      min-height: 15px;
+      .post-comment-collapse-minus {
+        display: block !important;
+        &.is-plus { display: none !important; }
+      }
+      &:has(> .post-comment-body > .post-comment-body-head > input#comment-expanded:not(:checked)) {
+        .post-comment-body > :not(.post-comment-body-head) { display: none; }
+        .post-comment-collapse-minus {
+          display: none !important;
+          &.is-plus { display: block !important; }
+        }
+      }
+      input#comment-expanded {
+        margin-left: -20px;
+        opacity: 0;
+      }
+      [muted] {display: none;}
+      &:has(> .post-comment-body > .post-comment-text > .showmorebox > .showmorebox-body > input#muted-comment-hidden:checked) {
+        [muted] {display: block;}
+        .user-link-name:not([muted]), .markdown-body:not([muted]) {display: none;}
+      }
+      input#muted-comment-hidden {
+        width: 100%;
+        height: 50%;
+        position: absolute;
+        top: 20px;
+        opacity: 0;
+        &:not(:checked) {display: none;}
+      }
+    }
+    .post-comment-body {
+      margin-left: 10px !important;
+    }
+    .post-comment-body-head {
+      position: absolute;
+      left: 10px;
+      top: 0;
+      right: 0;
+      background-color: var(--color-bg);
+      transform: translateY(-50%);
+      padding-left: 5px;
+    }
+    .post-comment-text {
+      margin-top: 18px;
+    }
+    .post-comments-comments {
+      margin-bottom: 10px;
+      margin-top: 25px;
+    }
   }
   label-expand, label-collapse {
     width: 100%;
@@ -175,7 +231,7 @@ comment-box {
 body {
   height: 100vh;
 }
-.posts, .comm-content {
+.posts, .comm-content, #root {
   overflow: unset !important;
 }
 .post-card-card, .post-votes, comment-box {
@@ -201,6 +257,17 @@ body {
   }
   comment-box {
     width: 100%;
+    position: initial;
+    margin: 0;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+  .post-card-card, .post-votes {
+    position: initial;
+  }
+  .post-card-card {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
 }
 @media screen and (max-width: 768px) {
@@ -268,23 +335,23 @@ function constructCommentBox(parent, postIndex) {
         post = posts.find(el => href.includes(el.publicId));
     }
 
+    console.log(post.createdAt);
+
     commentBox.innerHTML = `
     <div class="post">
     <div class="post-comments-comments">
       ${post.comments.map(comment => `
       <div class="post-comment has-propics is-depth-${comment.depth}" style="z-index: 100000;" id="${comment.id}">
-        <div class="post-comment-left">
-          <div class="post-comment-collapse">
-            <div class="post-comment-propic">
-              <a href="/@${comment.username}" target="_self" rel="nofollow noreferrer">
-                <div class="user-propic">
+        <div class="post-comment-body">
+          <div class="post-comment-body-head">
+            <a href="/@${comment.username}" class="user-link post-comment-username ${comment.author && comment.author.badges.some(el => el.type === "supporter") ? "is-supporter" : ""} ${comment.username === "[Hidden]" || comment.username === "ghost" ? "is-hidden" : ""}">
+              <div class="user-propic">
                   ${comment.author && comment.author.proPic ?
-                          `<div class="profile-picture" style="background-color: rgb(120, 84, 49); background-image: url(&quot;${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}&quot;);">
+                  `<div class="profile-picture" style="background-color: rgb(120, 84, 49); background-image: url(&quot;${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}&quot;);">
                     <img alt="${comment.username}'s profile" src="${comment.author && comment.author.proPic ? comment.author.proPic.copies[0].url : ""}">
                   </div>`
-                          :
-                          `${comment.author ?
-                          `<div class="profile-picture is-default" style="background-color: ${(() => {
+                  : `${comment.author && !comment.author.deleted ?
+                  `<div class="profile-picture is-default" style="background-color: ${(() => {
         switch (comment.username.charCodeAt(0) % 8) {
             case 0:
                 return "#e55454";
@@ -315,29 +382,41 @@ function constructCommentBox(parent, postIndex) {
                           }`
                           }
                 </div>
-              </a>
-            </div>
-            <div class="post-comment-line">
-            </div>
-          </div>
-        </div>
-        <div class="post-comment-body">
-          <div class="post-comment-body-head">
-            <a href="/@${comment.username}" class="user-link post-comment-username ${comment.author && comment.author.badges.length && comment.author.badges.some(el => el.type === "supporter") ? "is-supporter" : ""}">
-              <div class="user-link-name ${comment.author && comment.author.badges.length && comment.author.badges.some(el => el.type === "supporter") ? "is-supporter" : ""}">${comment.username}</div>
+              <div class="user-link-name ${comment.author && comment.author.badges.length && comment.author.badges.some(el => el.type === "supporter") ? "is-supporter" : ""}">${comment.username === "ghost" ? "Ghost" : comment.username === "[Hidden]" ? "Hidden" : comment.username}</div>
+              <div class="user-link-name" muted>Muted</div>
             </a>
-            <span title="${comment.createdAt}" class="post-comment-head-item">${comment.createdAt}</span>
+            ${comment.username === post.username ? '<div class="post-comment-head-item post-comment-is-op" title="Original poster">OP</div>' : ""}
+            <span title="${new Date(comment.createdAt).toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "numeric"})}" class="post-comment-head-item">${timeAgo(comment.createdAt)}</span>
+            ${comment.userGroup === "admins" ? '<div class="post-comment-head-item post-comment-user-group">Admin</div>' : ''}
+            ${comment.userGroup === "mods" ? '<div class="post-comment-head-item post-comment-user-group">Mod</div>' : ''}
             <div class="post-comment-head-item post-comment-collapse-minus">
             </div>
+            <div class="post-comment-head-item post-comment-collapse-minus is-plus">
+            </div>
+            <input type="checkbox" id="comment-expanded" ${comment.isAuthorMuted ? "" : "checked"}/>
           </div>
           <div class="post-comment-text" style="opacity: 1; cursor: auto;">
-            <div class="showmorebox">
+            ${!comment.deleted ?
+            `<div class="showmorebox">
               <div class="showmorebox-body" style="max-height: 500px;">
                 <div class="markdown-body">
                   <p>${comment.body}</p>
                 </div>
+                <div class="markdown-body" muted>You've muted this user. Click here to see this comment.</div>
+                <input type="checkbox" id="muted-comment-hidden" ${comment.isAuthorMuted ? "checked" : "" }/>
               </div>
-            </div>
+            </div>`
+            :
+            `<div class="post-comment-text-sign">Deleted by ${(() => {
+        switch (comment.deletedAs) {
+            case "admins":
+                return "admin";
+            case "mods":
+                return "moderator";
+            case "normal":
+                return "user";
+        }
+    })()}</div>`}
           </div>
           <div class="post-comment-buttons" style="position: relative; z-index: 2000000;">
             <button class="button-text post-comment-buttons-vote is-up">
@@ -363,9 +442,9 @@ function constructCommentBox(parent, postIndex) {
         </div>
       </div>
       `).join('')}
+      ${post.comments.length == 0 ? "<p style='text-align: center; margin: 20px;'>No comments yet :<<br>It's free realestate!</p>" : ""}
     </div>
     </div>
-    ${post.comments.length == 0 ? "<p style='text-align: center; margin: 20px;'>No comments yet :<<br>It's free realestate!</p>" : ""}
     `;
 
     if (post.comments.length > 2 || commentBox.offsetHeight > 300) {
@@ -389,5 +468,26 @@ function constructCommentBox(parent, postIndex) {
         depth++;
         comments = commentBox.querySelectorAll(`.is-depth-${depth}`);
     }
+}
+
+function timeAgo(input) {
+  const date = (input instanceof Date) ? input : new Date(input);
+  const formatter = new Intl.RelativeTimeFormat('en');
+  const ranges = {
+    years: 3600 * 24 * 365,
+    months: 3600 * 24 * 30,
+    weeks: 3600 * 24 * 7,
+    days: 3600 * 24,
+    hours: 3600,
+    minutes: 60,
+    seconds: 1
+  };
+  const secondsElapsed = (date.getTime() - Date.now()) / 1000;
+  for (let key in ranges) {
+    if (ranges[key] < Math.abs(secondsElapsed)) {
+      const delta = secondsElapsed / ranges[key];
+      return formatter.format(Math.round(delta), key);
+    }
+  }
 }
 
