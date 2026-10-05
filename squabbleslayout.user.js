@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.5.5
+// @version      0.5.6
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -61,10 +61,12 @@ const observerOptions = {
 
 async function setupObserver() {
     let targetNode = document.querySelector(".feed");
+    //console.log(targetNode);
 
     while (!targetNode) {
         await new Promise(r => setTimeout(r, 200));
         targetNode = document.querySelector(".feed");
+        //console.log(targetNode);
     }
 
     const observer = new MutationObserver(callback);
@@ -129,6 +131,9 @@ function onLoad() {
 // comment collapsing --
 // comment (and post?) votes can be disabled
 
+// pwa
+// popstate works for back and forwards navigation, but try overriding pushState() and replaceState() for other navigation
+
 GM_addStyle(`
 .sidebar-right {
   display: none;
@@ -142,6 +147,7 @@ comment-box {
   height: fit-content;
   input#post-expanded {
     bottom: 0;
+    height: 25px;
     position: sticky;
     width: 100% !important;
     z-index: 200000;
@@ -210,7 +216,7 @@ comment-box {
   }
   label-expand, label-collapse {
     width: 100%;
-    height: 21px;
+    height: 25px;
     bottom: 0;
     margin-top: -21px;
     position: sticky;
@@ -270,8 +276,8 @@ body {
     border-bottom-right-radius: 0;
   }
 }
-comment-box input#post-expanded {
-  bottom: 100px;
+:has(.bottom-navbar) comment-box :is(input#post-expanded, label-expand, label-collapse) {
+  bottom: var(--bottom-navbar-height);
 }
 .page-content.page-grid {
   max-width: unset;
@@ -318,8 +324,20 @@ window.addEventListener('urlchange', (info) => {
     });
 });
 
+window.addEventListener("popstate", async (event) => {
+    await setupObserver();
+    document.querySelectorAll(".feed-item").forEach(post => {
+        const postObserver = new MutationObserver(postCallback);
+        postObserver.observe(post, observerOptions);
+
+        const postIndex = [].indexOf.call(post.parentNode.querySelectorAll(".feed-item"), post);
+        constructCommentBox(post, postIndex);
+    });
+});
+
 function constructCommentBox(parent, postIndex) {
     if (!parent) parent = document.querySelectorAll(".feed-item")[postIndex]
+    if (!parent) return;
     let commentBox = parent.querySelector("comment-box");
     if (!parent.querySelector(".post-card")) return;
     if (!parent.querySelector("comment-box")) {
