@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         squabbles layout
 // @namespace    http://tampermonkey.net/
-// @version      0.5.7
+// @version      0.5.8
 // @updateURL    https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @downloadURL  https://github.com/roomfullofcommits/discuitstuff/raw/refs/heads/main/squabbleslayout.user.js
 // @description  maybe
@@ -122,8 +122,8 @@ function onLoad() {
 // op, mod, admin markers --
 // supporter marker not working --
 // set feed-item min-height when collapse button toggled (there was an issue where it would unload the comments and collapse them but i guess thats gone?) --
-// now they dont stay expanded again? the only actual issue is when expanding comments to more than a posts length, scrolling down, then collapsing.
-  // makes stuff jump around because min-height doesnt update. still it would be nice if comments stayed expanded
+// now they dont stay expanded again? the only actual issue is when expanding comments to more than a posts length, scrolling down, then collapsing. --
+  // makes stuff jump around because min-height doesnt update. still it would be nice if comments stayed expanded --
 // community page layout
 // user profile page
 // base expand visibility not just on comment count, there could be one really long comment --
@@ -133,6 +133,11 @@ function onLoad() {
 
 // pwa
 // popstate works for back and forwards navigation, but try overriding pushState() and replaceState() for other navigation
+
+// comments expand by default if expanding would be less than 100 px --
+// scroll to post when collapsing comments --
+  // event for toggling input#post-expanded, check state, scroll to parent --
+
 
 GM_addStyle(`
 .sidebar-right {
@@ -152,12 +157,16 @@ comment-box {
     width: 100% !important;
     z-index: 200000;
     opacity: 0;
+    margin-bottom: -4px;
   }
   .post {
     display: block;
     overflow: hidden;
     margin: 0 10px;
-    max-height: 300px;
+    max-height: 600px;
+    &:has(+ input#post-expanded) {
+      max-height: 250px;
+    }
     .post-comment {
       border: 2px solid var(--collapse-color);
       border-top-left-radius: var(--border-radius);
@@ -466,12 +475,21 @@ function constructCommentBox(parent, postIndex) {
     </div>
     `;
 
-    if (post.comments.length > 2 || commentBox.offsetHeight > 300) {
-        let checkbox = GM_addElement(commentBox, "input", {type: "checkbox", id: "post-expanded"});
-        let expand = GM_addElement(commentBox, "label-expand");
-        expand.textContent = "Expand";
-        let collapse = GM_addElement(commentBox, "label-collapse");
-        collapse.textContent = "Collapse";
+    if (commentBox.offsetHeight > 600) {
+      let checkbox = GM_addElement(commentBox, "input", {type: "checkbox", id: "post-expanded"});
+      checkbox.addEventListener("change", () => {
+        parent = checkbox.closest(".feed-item")
+        parent.style = "min-height: " + parent.querySelector(".post-card").offsetHeight + "px";
+        if (!checkbox.checked) {
+          parent.scrollIntoView({behavior: "auto", block: "nearest"});
+          console.log(parent.querySelector(".post-card").offsetHeight);
+        }
+      });
+
+      let expand = GM_addElement(commentBox, "label-expand");
+      expand.textContent = "Expand";
+      let collapse = GM_addElement(commentBox, "label-collapse");
+      collapse.textContent = "Collapse";
     }
 
     //go through comments by depth
